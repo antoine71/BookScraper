@@ -9,4 +9,4 @@ bookscraper/__pycache__
 test.py
 
 #results
-results.csv
+*.csv
