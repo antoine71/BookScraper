@@ -9,4 +9,8 @@ bookscraper/__pycache__
 test.py
 
 #results
+csv/
 *.csv
+images/
+*.jpg
+
