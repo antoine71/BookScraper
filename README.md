@@ -22,7 +22,7 @@ Operating instructions:
 1. install python3
 2. Install the python modules specified in the file requirement.txt
 3. Navigate to the directory where you want the files to be saved
-4. Run the python script bookscraper/script.py
+4. Run the python script script.py
 
 
 

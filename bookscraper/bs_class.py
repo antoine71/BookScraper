@@ -1,5 +1,5 @@
 # coding: utf-8
-
+from bookscraper.bs_functions import *
 import csv
 import os
 import re
@@ -7,65 +7,65 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def check_scraping_error(get_function):
-    """ This function is a decorator that is intended to capture errors (missing data)
-    while scraping data from a book page. It returns 'not available' instead of the data
-    if the data is missing"""
-    def modified_function(*parameters):
-        try:
-            return get_function(*parameters)
-        except AttributeError:
-            print('\tWARNING - failed to execute {} for the following book: {}'.format(get_function, Book.current_book))
-            return 'not available'
-    return modified_function
+class BookScraper:
+    """This is the main class of the program. I contains the core methods that are used in a program.
+    This class is used as a parent class the other classes of the program as it contains methods that
+    can be used for several purposes"""
+
+    def __init__(self, page_url):
+        self.page_url = page_url
+
+    def get_all_categories(self):
+        """This method returns a list of tuples containing the name and url of all the categories displayed on the
+        website
+        [
+            (category1_name, category1_url),
+            (category2_name, category2_url),
+            ...
+        ]
+        (this method shall be called with the following url as parameter:
+        http://books.toscrape.com/index.html)
+        """
+        print('checking book categories...')
+        front_page_soup = self.create_bookscraper_soup()
+        categories_list = front_page_soup.find('div', class_='side_categories').find('ul').find('ul').find_all('li')
+        categories = []
+        for item in categories_list:
+            category_name = item.find('a').string.strip()
+            url_relative = item.find('a')['href']
+            category_url = 'http://books.toscrape.com/' + url_relative
+            categories.append((category_name, category_url))
+        print('{} categories found...'.format(len(categories)))
+        return categories
+
+    def create_request(self):
+        """This method creates an http request and returns a request response object.
+        If the status code of the response is more than 400, it raises an exception and interrupts the program"""
+        r = requests.get(self.page_url)
+        if r.ok:
+            return r
+        else:
+            raise Exception('ERROR - http status code {} - Failed to retrieve the following page: {}'
+                            .format(r.status_code, self.page_url))
+
+    def create_bookscraper_soup(self):
+        """This method creates and return a BookscraperSoup object from the object page_url"""
+        r = self.create_request()
+        r.encoding = 'utf-8'
+        bookscraper_soup = BookscraperSoup(r.text, 'html.parser')
+        return bookscraper_soup
+
+    def swap_url_file(self, new_file):
+        """This methods changes the file name at the end of an object page_url (eg. index.html changed to page2.html)"""
+        url_split = self.page_url.split('/')
+        url_split[-1] = new_file
+        new_url = '/'.join(url_split)
+        return new_url
 
 
-def create_request(url):
-    """This function creates an http request and returns a request response object.
-    If the status code of the response is more than 400, it raises an exception and interrupts the program"""
-    r = requests.get(url)
-    if r.ok:
-        return r
-    else:
-        raise Exception('ERROR - http status code {} - Failed to retrieve the following page: {}'
-                        .format(r.status_code, url))
-
-
-def create_bookscraper_soup(url):
-    """This function creates and return a BookscraperSoup object from an url"""
-    r = create_request(url)
-    r.encoding = 'utf-8'
-    bookscraper_soup = BookscraperSoup(r.text, 'html.parser')
-    return bookscraper_soup
-
-
-def swap_url_file(url, new_file):
-    """This function changes the file name at the end of an url (eg. index.html changed to page2.html)"""
-    url_split = url.split('/')
-    url_split[-1] = new_file
-    new_url = '/'.join(url_split)
-    return new_url
-
-
-def get_all_categories():
-    """This method returns the list of all the categories displayed on the website
-    http://books.toscrape.com/index.html"""
-    print('checking book categories...')
-    front_page_url = 'http://books.toscrape.com/index.html'
-    front_page_soup = create_bookscraper_soup(front_page_url)
-    categories_list = front_page_soup.find('div', class_='side_categories').find('ul').find('ul').find_all('li')
-    categories = []
-    for item in categories_list:
-        category_name = item.find('a').string.strip()
-        url_relative = item.find('a')['href']
-        category_url = 'http://books.toscrape.com/' + url_relative
-        categories.append({'name': category_name, 'url': category_url})
-    print('{} categories found...'.format(len(categories)))
-    return categories
-
-
-class Book:
+class Book(BookScraper):
     """this class defines a book as it can be found on http://books.toscrape.com/.
+
     It stores the following data:
         product_page_url
         universal_ product_code
@@ -78,12 +78,13 @@ class Book:
         review_rating
         image_url
     The data is stored in a dictionary.
+
     It includes a method export_image that downloads the image file of the book.
     """
 
     books_created = 0
     current_book = ''
-    headers = [
+    HEADERS = [
         'product_page_url',
         'universal_product_code',
         'title',
@@ -96,54 +97,56 @@ class Book:
         'image_url',
     ]
 
-    def __init__(self, book_url):
+    def __init__(self, page_url):
         """Class constructor:
             gets the url page and create an object BookSoup, inherited from BeautifulSoup
             extract the data using the methods defined in the class BookSoup. \
             The data is stored in a dictionary.
         """
+        super().__init__(page_url)
         Book.books_created += 1
-        Book.current_book = book_url
-        book_soup = create_bookscraper_soup(book_url)
-
-        self.data = {
-            'product_page_url': book_url,
-            'universal_product_code': book_soup.get_universal_product_code(),
-            'title': book_soup.get_title(),
-            'price_including_tax': book_soup.get_price_including_tax(),
-            'price_excluding_tax': book_soup.get_price_excluding_tax(),
-            'number_available': book_soup.get_number_available(),
-            'product_description': book_soup.get_product_description(),
-            'category': book_soup.get_category(),
-            'review_rating': book_soup.get_review_rating(),
-            'image_url': book_soup.get_image_url(),
-        }
+        Book.current_book = page_url
+        book_soup = self.create_bookscraper_soup()
+        self.data = dict(zip(
+            Book.HEADERS,
+            [
+                self.page_url,
+                book_soup.get_universal_product_code(),
+                book_soup.get_title(),
+                book_soup.get_price_including_tax(),
+                book_soup.get_price_excluding_tax(),
+                book_soup.get_number_available(),
+                book_soup.get_product_description(),
+                book_soup.get_category(),
+                book_soup.get_review_rating(),
+                book_soup.get_image_url()
+            ]))
 
     def export_image(self, folder):
         """This method download and save the image the of book"""
         file_name = self.data['universal_product_code'] + '.jpg'
         file_path = folder + file_name
-        r = create_request(self.data['image_url'])
+        r = BookScraper(self.data['image_url']).create_request()
         with open(file_path, 'wb') as file:
             file.write(r.content)
 
 
-class BookCollection:
-    """this class contains a list of Book objects that belong to a category:
+class BookCollection(BookScraper):
+    """this class contains a list of Book objects that belong to a category. The category name and first page url are
+    passed as arguments to the constructor.
     It includes a method to export the books data in a csv file and to export the books images files.
     """
     collections_created = 0
 
-    def __init__(self, category_name, category_url):
+    def __init__(self, category_name, page_url):
         BookCollection.collections_created += 1
-        book_collection_soup = create_bookscraper_soup(category_url)
+
+        super().__init__(page_url)
 
         self.name = category_name
         print('[{}]\tParsing category {}...'.format(BookCollection.collections_created, self.name))
-
-        self.books_urls = book_collection_soup.get_books_urls(category_url)
+        self.books_urls = self.create_bookscraper_soup().get_books_urls(page_url)
         print('\t{} books found...'.format(len(self.books_urls)))
-
         self.books = [Book(url) for url in self.books_urls]
         print('\t{} books parsed...'.format(len(self.books)))
 
@@ -155,15 +158,15 @@ class BookCollection:
             os.mkdir(folder)
         except FileExistsError:
             pass
-        with open(file_path, 'w', encoding='utf-8') as export_file:
+        with open(file_path, 'w', encoding='utf-8', newline='') as export_file:
             file_writer = csv.writer(export_file)
-            file_writer.writerow(Book.headers)
+            file_writer.writerow(Book.HEADERS)
             for book in self.books:
                 file_writer.writerow(book.data.values())
         print('\tData for category {} exported as {}/{}.'.format(self.name, os.getcwd(), file_path))
 
     def export_images(self, folder='images/'):
-        """This method exports the images files in a csv subdirectory"""
+        """This method exports the images files in a subdirectory"""
         print('\tDownloading images...')
         try:
             os.mkdir(folder)
@@ -192,6 +195,9 @@ class BookscraperSoup(BeautifulSoup):
         get_books_urls
         get_next_page_url
         is_last_page
+
+    the decorator check_scraping_error is used to prevent the program from crashing if a data is not found.
+    It returns 'not available' instead of the data and displays a warning message.
     """
 
     @check_scraping_error
@@ -274,7 +280,7 @@ class BookscraperSoup(BeautifulSoup):
         books_urls = [url.replace('../../..', 'http://books.toscrape.com/catalogue') for url in books_urls_relative]
         if not self.is_last_page():
             next_page_url = self.get_next_page_url(current_page_url)
-            next_page_soup = create_bookscraper_soup(next_page_url)
+            next_page_soup = BookScraper(next_page_url).create_bookscraper_soup()
             books_urls.extend(next_page_soup.get_books_urls(next_page_url))
         return books_urls
 
@@ -282,7 +288,7 @@ class BookscraperSoup(BeautifulSoup):
         """This method returns the url of the next page of the category
         (if the books are displayed in more than one page)"""
         next_page_url_file = self.find('li', class_='next').find('a')['href']
-        next_page_url = swap_url_file(current_page_url, next_page_url_file)
+        next_page_url = BookScraper(current_page_url).swap_url_file(next_page_url_file)
         return next_page_url
 
     def is_last_page(self):

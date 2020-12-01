@@ -7,6 +7,7 @@ bookscraper/__pycache__
 
 #tests
 test.py
+test2.py
 
 #results
 csv/
