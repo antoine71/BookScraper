@@ -1,4 +1,4 @@
-# The file module bookscraper contains all the custom classes and functions used for this project.
+# The module bookscraper contains all the custom classes and functions used for this project.
 import bookscraper.bs_class as bs
 import os
 import platform
