@@ -19,10 +19,18 @@ The image files are named as per the book universal product code.
 Existing files with the same name will be replaced. 
 
 Operating instructions:
-1. install python3
-2. Install the python modules specified in the file requirement.txt
-3. Navigate to the directory where you want the files to be saved
-4. Run the python script script.py
+1. Install python
+2. Download the project repository
+3. Navigate to the project folder   
+4. Create a virtual environment using the following command:
+        python -m venv env
+5. Activate the virtual environment:
+        source env/bin/activate
+5. Install the python modules specified in the file requirement.txt:
+        pip install -r requirement.txt
+6. Navigate to the directory where you want the files to be saved
+7. Run the python script script.py:
+        python script.py
 
 
 
